@@ -4,6 +4,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'dart:convert';
+import 'package:vets_uo264446_dart_api/db_manager.dart';
 
 // Configure routes.
 final _router = Router()
@@ -20,13 +21,9 @@ Response _echoHandler(Request request) {
   return Response.ok('$message\n');
 }
 
-Response _usersHandler(Request request) {
-  List<Map<String, dynamic>> users  = [
-    {'name': 'Juan', 'email': 'juan@example.com'},
-    {'name': 'Maria', 'email': 'maria@example.com'},
-    {'name': 'Alex', 'email': 'alez@example.com'}
-  ];
-
+Future<Response> _usersHandler(Request request) async {
+  DbManager dbManager = DbManager.collection("users");
+  final users = await dbManager.findAll();
   return Response.ok(json.encode(users));
 }
 
