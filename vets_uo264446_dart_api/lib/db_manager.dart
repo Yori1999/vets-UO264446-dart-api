@@ -46,4 +46,27 @@ class DbManager {
     }
   }
 
+  Future<dynamic> insertOne(Map<String, dynamic> data) async {
+    try {
+      await connect();
+      final result = await _collection.insertOne(data);
+      if (result.isSuccess) {
+        return {"insertedId": result.id};
+      } else {
+        return {"error": result.writeError.errmsg};
+      }
+    } catch (error) {
+        return {"error": "Se ha producido un error inesperado"};
+    } finally {
+        await close();
+    }
+  }
+
+  // Method findOne take the same parameter and returns Future of just one map (mongo document) or null if not found
+  Future<dynamic> findOne(filter) async {
+    await connect();
+    final result = await _collection.findOne(filter);
+    return result;
+  }
+
 }
