@@ -2,14 +2,81 @@ import 'dart:convert';import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:vets_uo264446_dart_api/models/user.dart';
 import 'package:vets_uo264446_dart_api/repositories/user_repository.dart';
+import 'package:vets_uo264446_dart_api/encrypt_password.dart'as encrypter;
+import 'package:vets_uo264446_dart_api/user_token_service.dart' as jwt_service;
+import 'package:mongo_dart/mongo_dart.dart';
 
 final userRouter = Router()
   ..get('/users', _usersHandler)
-  ..post('/users/signUp', _signUpHandler);
+  ..post('/users/signUp', _signUpHandler)
+  ..post('/users/login', _loginHandler)
+  ..get('/users/<id>', _getUserHandler);
+
+/** Función manejadora del login */
+
+Future<Response> _loginHandler(Request request) async {
+  final credentialRequestBody = await request.readAsString();
+  final Map<String, dynamic> bodyParams = json.decode(credentialRequestBody);
+  // Verificamos que las credenciales vengan en el body de la petición
+  final String email = bodyParams.containsKey('email') ? bodyParams['email'] : '';
+  final String password = bodyParams.containsKey('password') ? bodyParams['password'] : '';
+
+  // Creamos las credenciales con la contraseña cifrada, porque en la base de datos se almacena cifrada
+  final Map<String, dynamic> credentials = {
+    "email" : email,
+    "password" : password
+  };
+
+  final authorizedUser = await areCredentialsValid(credentials);
+
+  if (!authorizedUser) {
+    return Response.unauthorized(json.encode({
+      "message" : "Usuario no autorizado o credenciales inválidas",
+      "authenticated" : false
+    }));
+  } else {
+    String token = jwt_service.UserTokenService.generateJwt({"email" : email});
+    return Response.ok(json.encode({
+      "message" : "Usuario autorizado",
+      "authenticated" : true,
+      "token" : token
+    }));
+  }
+}
+
+Future<bool> areCredentialsValid(Map<String, dynamic> credentials) async {
+  final user = await UsersRepository.findOne({"email" : credentials["email"]});
+  if (user != null) {
+    final encryptedPass = encrypter.checkPassword(credentials["password"], user["password"]);
+    return encryptedPass;
+  } else {
+    return false;
+  }
+}
+
+/** Fin de la función manejadora del login */
+
+Future<Response> _getUserHandler(Request request) async {
+  final dynamic token = request.headers.containsKey("token") ? request.headers["token"] : "";
+  final Map<String, dynamic> verifiedToken = jwt_service.UserTokenService.verifyJwt(token);
+  if (verifiedToken['authorized'] == false) {
+    return Response.unauthorized(json.encode(verifiedToken));
+  } else {
+    dynamic userId = ObjectId.fromHexString(request.params['id'].toString());
+    final users = await UsersRepository.findOne({"_id" : userId});
+    return Response.ok(json.encode(users));
+  }
+}
 
 Future<Response> _usersHandler(Request request) async {
-  final users = await UsersRepository.findAll();
-  return Response.ok(json.encode(users));
+  final dynamic token = request.headers.containsKey("token") ? request.headers["token"] : "";
+  final Map<String, dynamic> verifiedToken = jwt_service.UserTokenService.verifyJwt(token);
+  if (verifiedToken['authorized'] == false) {
+    return Response.unauthorized(json.encode(verifiedToken));
+  } else {
+    final users = await UsersRepository.findAll();
+    return Response.ok(json.encode(users));
+  }
 }
 
 Future<Response> _signUpHandler(Request request) async {
