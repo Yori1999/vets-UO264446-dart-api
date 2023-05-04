@@ -69,4 +69,10 @@ class DbManager {
     return result;
   }
 
+  Future<dynamic> deleteOne(filter) async {
+    await connect();
+    final result = await _collection.deleteOne(filter);
+    return result;
+  }
+
 }

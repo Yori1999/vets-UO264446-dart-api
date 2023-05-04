@@ -10,7 +10,8 @@ final userRouter = Router()
   ..get('/users', _usersHandler)
   ..post('/users/signUp', _signUpHandler)
   ..post('/users/login', _loginHandler)
-  ..get('/users/<id>', _getUserHandler);
+  ..get('/users/<id>', _getUserHandler)
+  ..delete('/users/<id>', _deleteUserHandler);
 
 /** Función manejadora del login */
 
@@ -55,6 +56,22 @@ Future<bool> areCredentialsValid(Map<String, dynamic> credentials) async {
 }
 
 /** Fin de la función manejadora del login */
+
+Future<Response> _deleteUserHandler(Request request) async {
+  final dynamic token = request.headers.containsKey("token") ? request.headers["token"] : "";
+  final Map<String, dynamic> verifiedToken = jwt_service.UserTokenService.verifyJwt(token);
+  if (verifiedToken['authorized'] == false) {
+    return Response.unauthorized(json.encode(verifiedToken));
+  } else {
+    dynamic userId = ObjectId.fromHexString(request.params['id'].toString());
+    dynamic result = await UsersRepository.deleteOne({"_id" : userId});
+    if (result.nRemoved < 1) {
+      return Response.notFound('Usuario no encontrado');
+    } else {
+      return Response.ok('Usuario $userId eliminado correctamente');
+    }
+  }
+}
 
 Future<Response> _getUserHandler(Request request) async {
   final dynamic token = request.headers.containsKey("token") ? request.headers["token"] : "";
