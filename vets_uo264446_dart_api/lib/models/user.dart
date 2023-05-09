@@ -14,21 +14,21 @@ class User {
   User.forInsert(this.name, this.surname, this.email, this.birthDate, this.password);
 
   Map<String, dynamic> toJsonInsert() => {
-      'name': name,
-      'surname': surname,
-      'email': email,
-      'birthDate': birthDate.toIso8601String(),
-      'password': password
-    };
+    'name': name,
+    'surname': surname,
+    'email': email,
+    'birthDate': birthDate.toIso8601String(),
+    'password': password
+  };
 
   Map<String, dynamic> toJson() => {
-      '_id': id,
-      'name': name,
-      'surname': surname,
-      'email': email,
-      'birthDate': birthDate.toIso8601String(),
-      'password': password
-    };    
+    '_id': id,
+    'name': name,
+    'surname': surname,
+    'email': email,
+    'birthDate': birthDate.toIso8601String(),
+    'password': password
+  };
 
   static User fromJson(Map<String, dynamic> json) => User(
     json.containsKey('_id') ? ObjectId.fromHexString(json['_id']) : null,

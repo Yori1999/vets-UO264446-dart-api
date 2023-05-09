@@ -11,7 +11,8 @@ final userRouter = Router()
   ..post('/users/signUp', _signUpHandler)
   ..post('/users/login', _loginHandler)
   ..get('/users/<id>', _getUserHandler)
-  ..delete('/users/<id>', _deleteUserHandler);
+  ..delete('/users/<id>', _deleteUserHandler)
+  ..patch('/users/<id>', _updateUserHandler);
 
 /** Función manejadora del login */
 
@@ -72,6 +73,60 @@ Future<Response> _deleteUserHandler(Request request) async {
     }
   }
 }
+
+Future<Response> _updateUserHandler(Request request) async {
+  final dynamic token = request.headers.containsKey("token") ? request.headers["token"] : "";
+  final Map<String, dynamic> verifiedToken = jwt_service.UserTokenService.verifyJwt(token);
+  if (verifiedToken['authorized'] == false) {
+    return Response.unauthorized(json.encode(verifiedToken));
+  } else {
+    // Check the user we want to modify does exist
+    dynamic userId = ObjectId.fromHexString(request.params['id'].toString());
+    final userFound = await UsersRepository.findOne({"_id": userId});
+    if (userFound == null) {
+      return Response.notFound('Usuario no encontrado');
+    }
+    // At this point, the user should exist, so we can process the request data to modify the user
+    final userUpdateRequestBody = await request.readAsString();
+    final userUpdateData = json.decode(userUpdateRequestBody);
+    final List<Map<String, String>> userValidateErrors = await validateUserUpdateData(userUpdateData); // this way we're way more flexible than with a User, but we need to validate correctly to allow partial updates ONLY in those fields we're interested
+    dynamic updatedUser;
+    if (userValidateErrors.isEmpty) {
+      updatedUser = await UsersRepository.updateOne({"_id": userId}, userUpdateData);
+      // in case there was some error when updating the user data
+      if (updatedUser.containsKey("error")) userValidateErrors.add(updatedUser);
+    }
+    if (userValidateErrors.isNotEmpty) {
+      final encodedError = jsonEncode(userValidateErrors);
+      return Response.badRequest(body: encodedError, headers: {'content-type': 'application/json'});
+    } else {
+        if (updatedUser['nModified'] < 1) {
+        return Response.ok('El usuario seleccionado no se ha modificado');
+      } else {
+        return Response.ok('Usuario $userId modificado correctamente');
+      }
+    }    
+  }
+}
+
+validateUserUpdateData(Map<String, dynamic> user) async {
+  List<Map<String, String>> errors = [];
+  List<String> allowedFields = ['name', 'surname', 'birthDate'];
+  if (user.keys.any((element) => !allowedFields.contains(element))) {
+    errors.add({"invalidField": "Only fields name, surname and birthDate are allowed for modification"});
+  }
+  if (user.containsKey('name') && user['name'].isEmpty) {
+    errors.add({"name": "You cannot pass an empty name"});
+  }
+  if (user.containsKey('surname') && user['surname'].isEmpty) {
+    errors.add({"surname": "You cannot pass an empty surname"});
+  }
+  if (user.containsKey('birthDate') && user['birthDate'].isEmpty) {
+    errors.add({"surname": "You cannot pass an empty birthdate"});
+  }  
+  return errors;
+}
+
 
 Future<Response> _getUserHandler(Request request) async {
   final dynamic token = request.headers.containsKey("token") ? request.headers["token"] : "";

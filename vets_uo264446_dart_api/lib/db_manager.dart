@@ -75,4 +75,20 @@ class DbManager {
     return result;
   }
 
+  Future<dynamic> updateOne(filter, Map<String, dynamic> data) async {
+    try {
+      await connect();
+      final result = await _collection.updateOne(filter, {"\$set": data});
+      if (result.isSuccess) {
+        return {"updatedId": result.id, "nModified": result.nModified};
+      } else {
+        return {"error": result.writeError.errmsg};
+      }
+    } catch (error) {
+        return {"error": "Se ha producido un error inesperado"};
+    } finally {
+        await close();
+    }
+  }
+
 }
